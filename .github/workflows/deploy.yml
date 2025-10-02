@@ -8,7 +8,7 @@ on:
 env:
   AWS_REGION: "ap-south-1"
   ECR_FRONTEND_REPO: "novelpedia-frontend" # Must match your ECR repo name
-  ECR_BACKEND_REPO: "novelpedia-backend"  # Must match your ECR repo name
+  ECR_BACKEND_REPO: "novelpedia-backend"   # Must match your ECR repo name
 
 permissions:
   contents: read
@@ -40,19 +40,29 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG -f Dockerfile .
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
+            --build-arg NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }} \
+            --build-arg NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=${{ secrets.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET }} \
+            --build-arg CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
+            --build-arg CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }} \
+            -t $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG \
+            -f Dockerfile.frontend .
+          
+          docker push $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG
 
       - name: Build, Tag, and Push Backend Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_BACKEND_REPO:$IMAGE_TAG -f backend/Dockerfile ./backend
+          # Make sure this path matches your backend folder (e.g., 'backend/' or 'server/')
+          docker build -t $ECR_REGISTRY/$ECR_BACKEND_REPO:$IMAGE_TAG -f server/Dockerfile ./server
           docker push $ECR_REGISTRY/$ECR_BACKEND_REPO:$IMAGE_TAG
 
       # 3. DEPLOY TO EC2 INSTANCE VIA SSH
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3 # Using a specific version is more stable
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -61,22 +71,4 @@ jobs:
             # Set environment variables for docker-compose
             export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
             export AWS_REGION=${{ env.AWS_REGION }}
-            export FRONTEND_IMAGE_URL=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ env.ECR_FRONTEND_REPO }}:${{ github.sha }}
-            export BACKEND_IMAGE_URL=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ env.ECR_BACKEND_REPO }}:${{ github.sha }}
-
-            # Log in to AWS ECR
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-
-            # Navigate to the app directory
-            cd /home/${{ secrets.EC2_USERNAME }}/app || exit
-
-            # Pull the latest images from ECR
-            docker pull $FRONTEND_IMAGE_URL
-            docker pull $BACKEND_IMAGE_URL
-            
-            # Stop old containers and start new ones using docker-compose
-            docker-compose down
-            docker-compose up -d
-
-            # Clean up old, unused Docker images
-            docker image prune -af
+            export FRONTEND_IMAGE
