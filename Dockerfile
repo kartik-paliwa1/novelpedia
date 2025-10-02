@@ -23,6 +23,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps && \
     npm cache clean --force
 
+# Copy the prisma schema first and generate the client
+# This layer is only invalidated if the prisma schema changes
+COPY prisma ./prisma/
+RUN npx prisma generate
+
 # Copy the rest of the application source code
 COPY . .
 
