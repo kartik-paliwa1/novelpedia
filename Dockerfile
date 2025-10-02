@@ -29,7 +29,7 @@ COPY prisma ./prisma/
 RUN npx prisma generate
 
 # Copy the rest of the application source code
-COPY . .
+COPY frontend/ .
 
 
 # Generate Prisma client
