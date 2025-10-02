@@ -1,0 +1,69 @@
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+.next
+npm-debug.log
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Server code (already has its own Dockerfile)
+server/
+
+# Development and test files
+tests/
+test/
+__tests__/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+vitest.config.ts
+vitest.setup.ts
+tsconfig.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs and temporary files
+dist
+build
+out
+tmp/
+temp/
+
+# Database files
+prisma/dev.db
+
+# Other project folders
+Dashboard/
+frontend/
+Novel's Page/
+NovelPedia-feat-backend-implementation/

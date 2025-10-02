@@ -1,0 +1,8 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/dashboard/editor/[novelslug]/[chapterid]/page": "app/dashboard/editor/[novelslug]/[chapterid]/page.js",
+  "/dashboard/editor/[novelslug]/page": "app/dashboard/editor/[novelslug]/page.js",
+  "/dashboard/editor/page": "app/dashboard/editor/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/page": "app/page.js"
+}

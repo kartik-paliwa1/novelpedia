@@ -1,0 +1,28 @@
+{
+  "pages": {
+    "/login/page": [
+      "static/chunks/src_app_globals_b805903d.css",
+      "static/chunks/node_modules_9ff2312c._.js",
+      "static/chunks/src_6976d528._.js",
+      "static/chunks/src_app_layout_tsx_c0237562._.js",
+      "static/chunks/_63242f4a._.js",
+      "static/chunks/src_app_not-found_tsx_b6055795._.js",
+      "static/chunks/node_modules_@aws-amplify_auth_dist_esm_3ef90e91._.js",
+      "static/chunks/node_modules_react-icons_lu_index_mjs_26d8a9f0._.js",
+      "static/chunks/node_modules_react-icons_fc_index_mjs_3f3027b2._.js",
+      "static/chunks/node_modules_react-icons_di_index_mjs_a0f1ea47._.js",
+      "static/chunks/node_modules_react-icons_fa_index_mjs_d2e2d7f5._.js",
+      "static/chunks/node_modules_react-icons_lib_74ccc930._.js",
+      "static/chunks/node_modules_@aws-amplify_core_dist_esm_utils_0bd43549._.js",
+      "static/chunks/src_app_login_page_tsx_219bf25b._.js",
+      "static/chunks/src_app_login_page_tsx_b6055795._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_fd44f5a4._.js",
+      "static/chunks/node_modules_next_dist_compiled_2ce9398a._.js",
+      "static/chunks/node_modules_next_dist_client_8f19e6fb._.js",
+      "static/chunks/node_modules_next_dist_2ecbf5fa._.js",
+      "static/chunks/node_modules_@swc_helpers_cjs_00636ac3._.js",
+      "static/chunks/_e69f0d32._.js",
+      "static/chunks/_93808211._.js"
+    ]
+  }
+}

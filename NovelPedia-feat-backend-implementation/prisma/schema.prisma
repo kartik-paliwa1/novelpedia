@@ -1,0 +1,211 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  GUEST
+  READER
+  WRITER
+  MODERATOR
+  ADMIN
+}
+
+enum NovelStatus {
+  DRAFT
+  PUBLISHED
+  HIATUS
+  COMPLETED
+}
+
+enum ChapterStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum NotificationType {
+  NEW_CHAPTER
+  NEW_COMMENT
+  NEW_REVIEW
+  NEW_FOLLOWER
+  COMMENT_FLAGGED
+}
+
+enum ModerationActionType {
+  WARN
+  SUSPEND
+  BAN
+  DELETE_COMMENT
+  DELETE_REVIEW
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  username          String             @unique
+  passwordHashed    String
+  role              Role               @default(READER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  profile           Profile?
+  novels            Novel[]
+  readingHistory    ReadingHistory[]
+  collections       Collection[]
+  bookmarks         Bookmark[]
+  sentFollows       Follow[]           @relation("UserFollows")
+  receivedFollows   Follow[]           @relation("FollowedByUser")
+  notifications     Notification[]
+  reviews           Review[]
+  comments          Comment[]
+  ratings           Rating[]
+  moderationActions ModerationAction[]
+}
+
+model Profile {
+  id                  String @id @default(cuid())
+  user                User   @relation(fields: [userId], references: [id])
+  userId              String @unique
+  bio                 String?
+  avatarUrl           String?
+  readingPreferences  Json?
+}
+
+model Novel {
+  id            String      @id @default(cuid())
+  title         String
+  author        User        @relation(fields: [authorId], references: [id])
+  authorId      String
+  genre         String
+  tags          String
+  coverImageUrl String?
+  synopsis      String
+  status        NovelStatus @default(DRAFT)
+  chapters      Chapter[]
+  comments      Comment[]
+  reviews       Review[]
+  ratings       Rating[]
+  trendingScore Float       @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  collections   Collection[]
+}
+
+model Chapter {
+  id           String        @id @default(cuid())
+  novel        Novel         @relation(fields: [novelId], references: [id])
+  novelId      String
+  title        String
+  content      String
+  wordCount    Int
+  status       ChapterStatus @default(DRAFT)
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  bookmarks    Bookmark[]
+  readingHistory ReadingHistory[]
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  novel     Novel     @relation(fields: [novelId], references: [id])
+  novelId   String
+  chapterId String?
+  parent    Comment?  @relation("Replies", fields: [parentId], references: [id])
+  parentId  String?
+  replies   Comment[] @relation("Replies")
+  content   String
+  isFlagged Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  novel     Novel    @relation(fields: [novelId], references: [id])
+  novelId   String
+  title     String
+  content   String
+  rating    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Rating {
+  id      String   @id @default(cuid())
+  user    User     @relation(fields: [userId], references: [id])
+  userId  String
+  novel   Novel    @relation(fields: [novelId], references: [id])
+  novelId String
+  value   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id])
+  chapterId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  name        String
+  description String?
+  novels      Novel[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ReadingHistory {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  chapter    Chapter  @relation(fields: [chapterId], references: [id])
+  chapterId  String
+  progress   Float
+  lastReadAt DateTime @default(now())
+}
+
+model Follow {
+  follower    User     @relation("UserFollows", fields: [followerId], references: [id])
+  followerId  String
+  following   User     @relation("FollowedByUser", fields: [followingId], references: [id])
+  followingId String
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+}
+
+model Notification {
+  id               String           @id @default(cuid())
+  user             User             @relation(fields: [userId], references: [id])
+  userId           String
+  type             NotificationType
+  relatedEntityId  String
+  isRead           Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+}
+
+model ModerationAction {
+  id          String               @id @default(cuid())
+  moderator   User                 @relation(fields: [moderatorId], references: [id])
+  moderatorId String
+  targetId    String
+  action      ModerationActionType
+  reason      String
+  createdAt   DateTime             @default(now())
+}

@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 7, "column": 0}, "map": {"version":3,"sources":["file:///home/matei/NovelPedia/App/src/lib/amplifyClient.ts"],"sourcesContent":["'use client';\n\nimport { Amplify } from 'aws-amplify';\nimport awsExports from '@/aws-exports'; // Or adjust to '../aws-exports' if needed\n\n// Ensure it’s only configured once (optional guard)\nlet amplifyConfigured = false;\n\nif (!amplifyConfigured) {\n  Amplify.configure(awsExports);\n  amplifyConfigured = true;\n}\n"],"names":[],"mappings":";AAEA;;;;;;AAFA;;;AAKA,oDAAoD;AACpD,IAAI,oBAAoB;AAExB,IAAI,CAAC,mBAAmB;IACtB,+MAAA,CAAA,UAAO,CAAC,SAAS,CAAC;IAClB,oBAAoB;AACtB","debugId":null}}]
+}

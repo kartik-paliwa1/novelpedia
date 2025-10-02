@@ -1,0 +1,55 @@
+@import "tailwindcss";
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    /* Allow scrolling */
+    overflow-x: auto;
+
+    /* Firefox custom scrollbar */
+    scrollbar-width: thin; /* thin scrollbar */
+    scrollbar-color: #141a29 #141a29; 
+    /* thumb color = orange (#ff6600), track = greenish (#99cc99) */
+  }
+
+  /* WebKit browsers: Chrome, Safari, Edge */
+  .scrollbar-hide::-webkit-scrollbar {
+    height: 8px; /* horizontal scrollbar height */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar-track {
+    background: #99cc99; /* greenish background */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar-thumb {
+    background-color: #ff6600; /* orange thumb */
+    border-radius: 4px;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar-thumb:hover {
+    background-color: #e65c00; /* darker orange on hover */
+  }
+}

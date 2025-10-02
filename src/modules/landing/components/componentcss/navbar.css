@@ -1,0 +1,18 @@
+.logo-title{
+    font-family: Inter;
+    font-weight: 700;
+    font-style: Bold;
+    font-size: 18px;
+    leading-trim: NONE;
+    line-height: 28px;
+    letter-spacing: 0%;
+    vertical-align: middle;
+    margin-left: 5px;
+}
+
+@media (max-width: 1300px) {
+    .logo-title{
+        font-size: 14px;
+        margin-left: 3px;
+    }
+}

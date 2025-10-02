@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      args:
+        - PYTHON_VERSION=3.11-slim
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server/db.sqlite3:/app/db.sqlite3
+    command: >
+      sh -c "python manage.py makemigrations &&
+             python manage.py migrate &&
+             gunicorn core.wsgi:application --bind 0.0.0.0:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+        - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}
+        - NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=${NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
+        - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+        - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+        - NODE_VERSION=20-alpine
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+      - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}
+      - NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=${NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - SEED_TEST_USER=true
+      - SEED_USER_EMAIL=test@example.com
+      - SEED_USER_PASSWORD=Password123!
+      - SEED_USER_USERNAME=devuser
+    depends_on:
+      - backend
+    volumes:
+      - ./prisma/dev.db:/app/prisma/dev.db

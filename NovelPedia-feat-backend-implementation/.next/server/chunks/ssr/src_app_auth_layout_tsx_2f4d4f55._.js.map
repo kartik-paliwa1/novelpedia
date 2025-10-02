@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 7, "column": 0}, "map": {"version":3,"sources":["file:///home/matei/NovelPedia/App/src/app/auth/layout.tsx"],"sourcesContent":["import type { Metadata } from 'next';\nimport '../../app/globals.css'; // path relative to src/app/layout.tsx\nimport '../../lib/amplifyClient'; // path relative to src/app/layout.tsx\n\nexport const metadata: Metadata = {\n  title: 'NovelPedia',\n  description: 'NovelPedia - Your Ultimate Destination for Web Novels',\n  icons: {\n    icon: '/favicon.ico', // ✅ relative to the `public/` folder\n  },\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" className=\"font-sans\">\n      <body className=\"antialiased\">\n        {children}\n      </body>\n    </html>\n  );\n}\n"],"names":[],"mappings":";;;;;AAEA,wNAAkC,sCAAsC;;;;AAEjE,MAAM,WAAqB;IAChC,OAAO;IACP,aAAa;IACb,OAAO;QACL,MAAM;IACR;AACF;AAEe,SAAS,WAAW,EACjC,QAAQ,EAGR;IACA,qBACE,8OAAC;QAAK,MAAK;QAAK,WAAU;kBACxB,cAAA,8OAAC;YAAK,WAAU;sBACb;;;;;;;;;;;AAIT","debugId":null}}]
+}

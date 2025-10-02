@@ -1,0 +1,11 @@
+{
+  "[project]/src/components/dashboard/editor/writing/quill-wrapper.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/src/components/dashboard/editor/writing/quill-wrapper.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/node_modules_quill_dist_quill_snow_68fe0c17.css",
+      "static/chunks/node_modules_287505ae._.js",
+      "static/chunks/src_components_dashboard_editor_writing_quill-wrapper_tsx_27121779._.js",
+      "static/chunks/src_components_dashboard_editor_writing_quill-wrapper_tsx_f9356ab1._.js"
+    ]
+  }
+}

@@ -1,0 +1,150 @@
+// Mock data object representing a private profile
+// Used across the PrivateProfilePage and profile components for props
+
+import { Star, Zap, Crown } from 'lucide-react';
+
+export const privateProfile = {
+  username: 'YourUsername',
+  displayName: 'Your Name',
+  avatar: '/placeholder.svg?height=120&width=120',
+  bio: 'Your bio goes here. Share your reading interests and what makes you passionate about novels!',
+  joinDate: 'March 2022',
+  location: 'Your Location',
+  email: 'your.email@example.com',
+  birthday: '1995-01-01',
+  gender: 'Prefer not to say',
+  favourite_novel: 'Reverend Insanity',
+  isPrivate: false,
+  isVerified: true,
+  isAuthor: true,
+
+  authorStats: {
+    seriesPublished: 1,
+    totalWordsWritten: 222608,
+    totalPageviews: 218959,
+    reviewsReceived: 1,
+    readersReached: 1057,
+    followers: 16,
+  },
+  readingGoals: {
+    daily: { target: 50, current: 23, type: 'pages' },
+    weekly: { target: 5, current: 3, type: 'hours' },
+    monthly: { target: 10, current: 7, type: 'books' },
+  },
+  badges: [
+    {
+      id: 1,
+      name: 'Review Master',
+      description: 'Written 50+ detailed reviews',
+      icon: Star,
+      color: 'from-blue-500 to-cyan-500',
+      rarity: 'rare',
+      progress: 89,
+      target: 100,
+    },
+    {
+      id: 2,
+      name: 'Reading Streak',
+      description: '100+ day reading streak',
+      icon: Zap,
+      color: 'from-orange-500 to-red-500',
+      rarity: 'epic',
+      progress: 127,
+      target: 150,
+    },
+    {
+      id: 3,
+      name: 'Speed Reader',
+      description: 'Read 1000+ chapters in a month',
+      icon: Crown,
+      color: 'from-yellow-500 to-orange-500',
+      rarity: 'common',
+      progress: 234,
+      target: 1000,
+    },
+  ],
+  myComments: [
+    {
+      id: 1,
+      commentText:
+        'hey guys!!! any good recommendations for Devil May Cry fanfics, the netflix series that came out recently.',
+      chapterTitle: 'ch 251 250 – I Like Your Voice',
+      novelTitle: 'Multiversal Friendship System',
+      novelCover: '/placeholder.svg?height=60&width=45',
+      genre: 'Anime & Comics',
+      author: 'I_Love_Hina',
+      timeAgo: '1 months ago',
+      likes: 12,
+      replies: [
+        {
+          id: 1,
+          username: 'CultivationFan99',
+          avatar: '/placeholder.svg?height=32&width=32',
+          text: "Try 'Devil's Ascension' by MasterWriter - it's really good!",
+          timeAgo: '3 weeks ago',
+          likes: 5,
+        },
+        {
+          id: 2,
+          username: 'AnimeReader',
+          avatar: '/placeholder.svg?height=32&width=32',
+          text: "I second that recommendation! Also check out 'Crimson Hunter' series.",
+          timeAgo: '2 weeks ago',
+          likes: 3,
+        },
+      ],
+    },
+    {
+      id: 2,
+      commentText:
+        "This breakthrough scene was absolutely epic! The way Long Chen overcame his inner demons and the power scaling here is just perfect. Can't wait to see what happens next!",
+      chapterTitle: 'Chapter 156: Breaking Through',
+      novelTitle: 'Nine Star Hegemon Body Art',
+      novelCover: '/placeholder.svg?height=60&width=45',
+      genre: 'Cultivation',
+      author: 'Ordinary Magician',
+      timeAgo: '2 hours ago',
+      likes: 23,
+      replies: [
+        {
+          id: 1,
+          username: 'XianxiaLover',
+          avatar: '/placeholder.svg?height=32&width=32',
+          text: 'Totally agree! This author really knows how to write breakthrough scenes.',
+          timeAgo: '1 hour ago',
+          likes: 8,
+        },
+      ],
+    },
+    {
+      id: 3,
+      commentText:
+        "Fang Yuan's manipulation tactics never cease to amaze me. The psychological warfare in this chapter is top-tier writing. This novel keeps getting better!",
+      chapterTitle: 'Chapter 2089: Ancient Wisdom',
+      novelTitle: 'Reverend Insanity',
+      novelCover: '/placeholder.svg?height=60&width=45',
+      genre: 'Cultivation',
+      author: 'Gu Zhen Ren',
+      timeAgo: '1 day ago',
+      likes: 45,
+      replies: [
+        {
+          id: 1,
+          username: 'DarkCultivator',
+          avatar: '/placeholder.svg?height=32&width=32',
+          text: "Fang Yuan is probably the best anti-hero protagonist I've ever read!",
+          timeAgo: '20 hours ago',
+          likes: 12,
+        },
+        {
+          id: 2,
+          username: 'WisdomSeeker',
+          avatar: '/placeholder.svg?height=32&width=32',
+          text: 'The way he uses human nature against people is brilliant.',
+          timeAgo: '18 hours ago',
+          likes: 9,
+        },
+      ],
+    },
+  ],
+};

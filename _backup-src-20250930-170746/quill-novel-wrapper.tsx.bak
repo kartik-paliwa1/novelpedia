@@ -1,0 +1,955 @@
+'use client';
+
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+
+import type QuillType from 'quill';
+
+// Import Quill CSS
+import 'quill/dist/quill.bubble.css';
+
+export interface QuillNovelWrapperProps {
+  value?: string;
+  initialValue?: string;
+  height?: number | string;
+  width?: string | number;
+  onEditorChange?: (payload: {
+    html: string;
+    delta: unknown;
+    images: string[];
+  }) => void;
+  onInit?: (quill: QuillType) => void;
+  init?: Record<string, any>;
+  disabled?: boolean;
+}
+
+export default function QuillNovelWrapper({
+  value,
+  initialValue = '',
+  height = 400,
+  width = '100%',
+  onEditorChange,
+  onInit,
+  init = {},
+  disabled = false,
+}: QuillNovelWrapperProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const quillRef = useRef<any>(null);
+  const rootElRef = useRef<HTMLElement | null>(null);
+  const clickHandlerRef = useRef<((e: Event) => void) | null>(null);
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [hasAuthorNote, setHasAuthorNote] = useState(false);
+
+  const getExistingAuthorNoteText = useCallback((): string => {
+    const root: HTMLElement | null = quillRef.current?.root ?? null;
+    if (!root) return '';
+    const existing = root.querySelector('.novel-author-note') as HTMLElement | null;
+    return existing?.textContent?.trim?.() ?? '';
+  }, []);
+
+  const openAuthorNoteDialog = useCallback(() => {
+    setNoteDraft(getExistingAuthorNoteText());
+    setIsNoteDialogOpen(true);
+  }, [getExistingAuthorNoteText]);
+
+  const removeAllAuthorNotes = useCallback(() => {
+    const q: any = quillRef.current;
+    const root: HTMLElement | null = q?.root ?? null;
+    if (!root || !q) return;
+    const notes = Array.from(root.querySelectorAll('.novel-author-note')) as HTMLElement[];
+    if (notes.length === 0) return;
+    notes.forEach((el) => {
+      try {
+        const blot = q.scroll?.find?.(el);
+        if (blot) {
+          const index = q.getIndex?.(blot) ?? null;
+          const length = blot.length ? blot.length() : (el.textContent?.length ?? 0);
+          if (typeof index === 'number' && length > 0) {
+            q.deleteText(index, length, 'user');
+          } else {
+            el.remove();
+          }
+        } else {
+          el.remove();
+        }
+      } catch {
+        el.remove();
+      }
+    });
+  }, []);
+
+  const upsertAuthorNoteAtEnd = useCallback((text: string) => {
+    const q: any = quillRef.current;
+    if (!q) return;
+
+    // Ensure only one note exists
+    removeAllAuthorNotes();
+
+    const note = (text ?? '').trim();
+    if (!note) {
+      setHasAuthorNote(false);
+      return;
+    }
+
+    const endBefore = q.getLength(); // includes trailing \n
+
+    // Create the author note HTML directly and insert it
+    const authorNoteHtml = `<div class="novel-author-note" contenteditable="false" title="Author Note - Will not appear in final export">${note}</div>`;
+    
+    // Insert using clipboard API which preserves the HTML structure
+    q.insertText(endBefore - 1, '\n', 'user');
+    const selection = q.getSelection();
+    q.clipboard.dangerouslyPasteHTML(endBefore, authorNoteHtml, 'user');
+    q.insertText(endBefore + 1, '\n', 'user');
+
+    // Move cursor to end after the note
+    q.setSelection(q.getLength(), 0);
+
+    setHasAuthorNote(true);
+  }, [removeAllAuthorNotes]);
+
+  // Initialize Quill editor
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    // Dynamic import to avoid SSR issues
+  import('quill').then(({ default: Quill }) => {
+      const BlockEmbed = Quill.import('blots/block/embed') as any;
+      const Inline = Quill.import('blots/inline') as any;
+      const Block = Quill.import('blots/block') as any;
+
+      // Author Note Blot - for notes that won't export
+      class AuthorNoteBlot extends BlockEmbed {
+        static blotName = 'author-note';
+        static tagName = 'div';
+        static className = 'novel-author-note';
+
+        static create(value: string) {
+          const node = super.create();
+          node.classList.add('novel-author-note');
+          node.textContent = value || "Author's note";
+          // Make the note non-editable in-place; editing is via modal
+          node.setAttribute('contenteditable', 'false');
+          node.setAttribute('title', 'Author Note - Will not appear in final export');
+          return node;
+        }
+
+        static formats() {
+          return true;
+        }
+
+        static value(node: HTMLElement) {
+          return node.textContent || '';
+        }
+      }
+
+      // Register the author note blot
+      Quill.register('formats/author-note', AuthorNoteBlot);
+
+  // Create Quill instance
+  const quill = new Quill(editorRef.current!, {
+        theme: 'bubble',
+        readOnly: disabled,
+        modules: {
+          
+          // History module for undo/redo with delayed saving
+          history: {
+            delay: 2000,
+            maxStack: 500,
+            userOnly: true,
+          },
+          
+          // Keyboard shortcuts
+          keyboard: {
+            bindings: {
+              // Ctrl+S for manual save
+              save: {
+                key: 's',
+                shortKey: true,
+                handler: () => {
+                  window.dispatchEvent(new CustomEvent('editorSaveRequest'));
+                  return false;
+                },
+              },
+            },
+          },
+          
+
+        },
+        formats: [
+          'bold',
+          'italic',
+          'underline',
+          'strike',
+          'script',
+          'author-note',
+        ],
+        placeholder: init.placeholder || 'Begin your story...',
+      });
+
+      // Set initial content
+      if (value !== undefined) {
+        quill.root.innerHTML = value;
+      } else if (initialValue) {
+        quill.root.innerHTML = initialValue;
+      }
+
+      let lastValidDelta = quill.getContents();
+
+      const emitEditorChange = () => {
+        const html = quill.root.innerHTML;
+        const delta = quill.getContents();
+        
+        lastValidDelta = delta;
+
+        // Track whether an author's note exists
+        try {
+          const exists = Boolean(quill.root.querySelector('.novel-author-note'));
+          setHasAuthorNote(exists);
+        } catch {}
+
+        onEditorChange?.({
+          html,
+          // Delta instances are not serialisable by default; callers can access ops
+          delta,
+          images: [], // No images supported
+        });
+      };
+
+      // Listen for text changes
+      quill.on('text-change', emitEditorChange);
+
+      // Clicking the author's note opens the edit dialog
+      const handleRootClick = (e: Event) => {
+        const target = e.target as HTMLElement | null;
+        if (target && target.closest && target.closest('.novel-author-note')) {
+          e.preventDefault();
+          e.stopPropagation();
+          setNoteDraft(getExistingAuthorNoteText());
+          setIsNoteDialogOpen(true);
+        }
+      };
+      rootElRef.current = quill.root as HTMLElement;
+      clickHandlerRef.current = handleRootClick;
+      rootElRef.current.addEventListener('click', handleRootClick, true);
+
+      // Create manual toolbar
+      const toolbarContainer = document.createElement('div');
+      toolbarContainer.className = 'ql-toolbar';
+      toolbarContainer.innerHTML = `
+        <span class="ql-formats">
+          <button type="button" class="ql-bold" title="Bold">
+            <svg viewBox="0 0 18 18"><path class="ql-stroke" d="M5,4H9.5A2.5,2.5,0,0,1,12,6.5v0A2.5,2.5,0,0,1,9.5,9H5A0,0,0,0,1,5,9V4A0,0,0,0,1,5,4Z"></path><path class="ql-stroke" d="M5,9h5.5A2.5,2.5,0,0,1,13,11.5v0A2.5,2.5,0,0,1,10.5,14H5a0,0,0,0,1,5,14V9A0,0,0,0,1,5,9Z"></path></svg>
+          </button>
+          <button type="button" class="ql-italic" title="Italic">
+            <svg viewBox="0 0 18 18"><line class="ql-stroke" x1="7" x2="13" y1="4" y2="4"></line><line class="ql-stroke" x1="5" x2="11" y1="14" y2="14"></line><line class="ql-stroke" x1="8" x2="10" y1="14" y2="4"></line></svg>
+          </button>
+          <button type="button" class="ql-underline" title="Underline">
+            <svg viewBox="0 0 18 18"><path class="ql-stroke" d="M5,3V9a4.012,4.012,0,0,0,4,4H9a4.012,4.012,0,0,0,4-4V3"></path><rect class="ql-fill" height="1" rx="0.5" ry="0.5" width="12" x="3" y="15"></rect></svg>
+          </button>
+          <button type="button" class="ql-strike" title="Strikethrough">
+            <svg viewBox="0 0 18 18"><line class="ql-stroke" x1="3" x2="15" y1="9" y2="9"></line><line class="ql-stroke" x1="3" x2="15" y1="4" y2="4"></line><line class="ql-stroke" x1="3" x2="15" y1="14" y2="14"></line></svg>
+          </button>
+        </span>
+        <span class="ql-formats">
+          <button type="button" class="ql-script" value="sub" title="Subscript">
+            <svg viewBox="0 0 18 18"><path class="ql-stroke" d="M5,7H13"></path><path class="ql-fill" d="M6,12a2,2,0,0,1-2-2V7H3V5H9V7H8v3A2,2,0,0,1,6,12Z"></path></svg>
+          </button>
+          <button type="button" class="ql-script" value="super" title="Superscript">
+            <svg viewBox="0 0 18 18"><path class="ql-stroke" d="M5,7H13"></path><path class="ql-fill" d="M6,4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V7H11V5H8V7Z"></path></svg>
+          </button>
+        </span>
+        <span class="ql-formats">
+          <button type="button" class="ql-author-note" title="Author Note">
+            📝 Note
+          </button>
+        </span>
+        <span class="ql-formats">
+          <button type="button" class="ql-clean" title="Remove formatting">
+            <svg class="ql-fill" viewBox="0 0 18 18"><path d="M5,3V4a1,1,0,0,0,1,1H12a1,1,0,0,0,1-1V3a1,1,0,0,0-1-1H6A1,1,0,0,0,5,3Z"></path><path class="ql-stroke" d="M4,6H14l-1,9a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2Z"></path></svg>
+          </button>
+        </span>
+      `;
+
+      // Insert toolbar before the editor
+      editorRef.current!.parentNode!.insertBefore(toolbarContainer, editorRef.current);
+
+      // Add event listeners for toolbar buttons
+      const addToolbarListeners = () => {
+        const buttons = toolbarContainer.querySelectorAll('button');
+        buttons.forEach(button => {
+          button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const format = button.className.split(' ').find(cls => cls.startsWith('ql-'));
+            if (format === 'ql-bold') {
+              quill.format('bold', !quill.getFormat().bold);
+            } else if (format === 'ql-italic') {
+              quill.format('italic', !quill.getFormat().italic);
+            } else if (format === 'ql-underline') {
+              quill.format('underline', !quill.getFormat().underline);
+            } else if (format === 'ql-strike') {
+              quill.format('strike', !quill.getFormat().strike);
+            } else if (format === 'ql-script') {
+              const value = button.getAttribute('value');
+              const currentScript = quill.getFormat().script;
+              quill.format('script', currentScript === value ? false : value);
+            } else if (format === 'ql-author-note') {
+              setNoteDraft(getExistingAuthorNoteText());
+              setIsNoteDialogOpen(true);
+            } else if (format === 'ql-clean') {
+              const range = quill.getSelection();
+              if (range) {
+                quill.removeFormat(range.index, range.length);
+              }
+            }
+          });
+        });
+      };
+
+      addToolbarListeners();
+
+      const toolbarModule = quill.getModule('toolbar') as { addHandler?: (format: string, handler: () => void) => void } | undefined;
+      if (toolbarModule?.addHandler) {
+        toolbarModule.addHandler('author-note', () => {
+          setNoteDraft(getExistingAuthorNoteText());
+          setIsNoteDialogOpen(true);
+        });
+      }
+
+      // Store reference and call onInit
+      quillRef.current = quill;
+      onInit?.(quill);
+
+      // Emit initial content snapshot after init
+      emitEditorChange();
+    });
+
+    // Cleanup
+    return () => {
+      try {
+        const root = rootElRef.current;
+        const handler = clickHandlerRef.current;
+        if (root && handler) {
+          root.removeEventListener('click', handler, true);
+        }
+        // Remove manual toolbar
+        const toolbar = editorRef.current?.parentNode?.querySelector('.ql-toolbar');
+        if (toolbar) {
+          toolbar.remove();
+        }
+        // Destroy Quill instance
+        if (quillRef.current) {
+          quillRef.current = null;
+        }
+      } catch {}
+      quillRef.current = null;
+      rootElRef.current = null;
+      clickHandlerRef.current = null;
+    };
+  }, []);
+
+  // Update content when value prop changes
+  useEffect(() => {
+    if (quillRef.current && value !== undefined) {
+      const currentContent = quillRef.current.root.innerHTML;
+      if (currentContent !== value) {
+        quillRef.current.root.innerHTML = value;
+      }
+      try {
+        const exists = Boolean(quillRef.current.root.querySelector('.novel-author-note'));
+        setHasAuthorNote(exists);
+      } catch {}
+    }
+  }, [value]);
+
+  // Update readonly state
+  useEffect(() => {
+    if (quillRef.current) {
+      quillRef.current.enable(!disabled);
+    }
+  }, [disabled]);
+
+  // Novel-writing specific styles
+  const novelEditorStyles = useMemo(() => {
+    const h = typeof height === 'number' ? `${height}px` : String(height);
+    return `
+      .novel-editor-root {
+        position: relative;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        /* Keep placeholder and caret aligned */
+        --novel-editor-padding-top: 48px;
+        --novel-editor-padding-bottom: 160px;
+        --novel-toolbar-surface: color-mix(in srgb, var(--card) 92%, rgba(15, 23, 42, 0.15) 8%);
+        --novel-toolbar-border: color-mix(in srgb, var(--border) 70%, rgba(148, 163, 184, 0.4) 30%);
+        --novel-toolbar-shadow: 0 20px 45px rgba(8, 14, 32, 0.2);
+        --novel-toolbar-divider: color-mix(in srgb, var(--border) 38%, transparent);
+        --novel-toolbar-button-color: color-mix(in srgb, var(--foreground) 84%, var(--muted-foreground) 16%);
+        --novel-toolbar-button-hover: color-mix(in srgb, var(--accent) 50%, rgba(148, 163, 184, 0.1) 50%);
+        --novel-toolbar-button-active: color-mix(in srgb, var(--primary) 65%, rgba(59, 130, 246, 0.35) 35%);
+        --novel-toolbar-button-active-color: var(--primary-foreground);
+      }
+
+      @supports not (background: color-mix(in srgb, white 50%, black 50%)) {
+        .novel-editor-root {
+          --novel-toolbar-surface: var(--card);
+          --novel-toolbar-border: var(--border);
+          --novel-toolbar-shadow: 0 18px 36px rgba(8, 11, 22, 0.24);
+          --novel-toolbar-divider: var(--border);
+          --novel-toolbar-button-color: var(--foreground);
+          --novel-toolbar-button-hover: color-mix(in srgb, var(--accent) 80%, transparent);
+          --novel-toolbar-button-active: color-mix(in srgb, var(--primary) 85%, transparent);
+          --novel-toolbar-button-active-color: var(--primary-foreground);
+        }
+      }
+
+      .novel-editor-root .novel-editor-surface {
+        width: 100%;
+      }
+
+      .novel-editor-root .ql-container {
+        min-height: ${h};
+        background: transparent;
+        border: none;
+        font-family: 'Georgia', 'Times New Roman', serif;
+        padding: 0 clamp(24px, 9vw, 160px);
+        display: flex;
+        justify-content: center;
+      }
+
+      .novel-editor-root .ql-editor {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        font-size: 19px;
+        line-height: 1.9;
+        padding: var(--novel-editor-padding-top) 0 var(--novel-editor-padding-bottom);
+        background: transparent;
+        color: var(--foreground);
+        min-height: ${h};
+        border: none;
+        outline: none;
+        max-width: 860px;
+        width: 100%;
+        margin: 0 auto;
+        position: relative;
+        transition: color 0.2s ease;
+      }
+
+      .novel-editor-root .ql-editor:focus {
+        background: transparent;
+        box-shadow: none;
+        outline: none;
+      }
+
+      .novel-editor-root .ql-toolbar {
+        position: sticky;
+        top: var(--novel-toolbar-offset, 0px);
+        z-index: 60;
+        background: var(--novel-toolbar-surface);
+        border: 1px solid var(--novel-toolbar-border);
+  border-radius: 20px;
+  padding: clamp(12px, 1.6vh, 18px) clamp(16px, 4.4vw, 34px);
+        margin: 0 auto 24px;
+        color: var(--foreground);
+        backdrop-filter: saturate(180%) blur(22px);
+        box-shadow: var(--novel-toolbar-shadow);
+        width: min(100%, 880px);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+  gap: 6px clamp(12px, 2.6vw, 20px);
+        transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .dark .novel-editor-root .ql-toolbar {
+        box-shadow: 0 26px 60px rgba(5, 8, 22, 0.45);
+      }
+
+      .novel-editor-root .ql-toolbar button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+  width: 36px;
+  height: 36px;
+        color: var(--novel-toolbar-button-color);
+        border: 1px solid transparent;
+        border-radius: 14px;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 8px 18px rgba(8, 14, 32, 0.18);
+        transition: transform 0.16s ease, color 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+      }
+
+      .novel-editor-root .ql-toolbar button:hover,
+      .novel-editor-root .ql-toolbar button:focus-visible {
+        background: var(--novel-toolbar-button-hover);
+        color: var(--foreground);
+        border-color: color-mix(in srgb, var(--novel-toolbar-border) 60%, var(--accent) 40%);
+  transform: translateY(-0.5px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 22px rgba(8, 14, 32, 0.22);
+      }
+
+      .novel-editor-root .ql-toolbar button.ql-active {
+        background: var(--novel-toolbar-button-active);
+        color: var(--novel-toolbar-button-active-color);
+        border-color: color-mix(in srgb, var(--novel-toolbar-border) 40%, var(--primary) 60%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), 0 12px 24px rgba(8, 14, 32, 0.26);
+      }
+
+      .novel-editor-root .ql-toolbar button .ql-stroke {
+        stroke: currentColor;
+      }
+
+      .novel-editor-root .ql-toolbar button .ql-fill {
+        fill: currentColor;
+      }
+
+      .novel-editor-root .ql-toolbar button svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Label for custom Author Note button */
+      .novel-editor-root .ql-toolbar button.ql-author-note::after {
+        content: 'Note';
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      .novel-editor-root .ql-toolbar .ql-picker {
+        color: var(--novel-toolbar-button-color);
+      }
+
+      .novel-editor-root .ql-toolbar .ql-formats {
+        display: flex;
+        align-items: center;
+  gap: 8px;
+        margin: 0;
+  padding: 0 clamp(16px, 3.2vw, 24px) 0 0;
+        border-right: 1px solid var(--novel-toolbar-divider);
+      }
+
+      .novel-editor-root .ql-toolbar .ql-formats:last-of-type {
+        padding-right: 0;
+        border-right: none;
+      }
+
+      .novel-editor-root .ql-toolbar .ql-picker-label {
+        border-radius: 14px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--novel-toolbar-button-color);
+  padding: 6px 14px;
+        transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .novel-editor-root .ql-toolbar .ql-picker-label:hover,
+      .novel-editor-root .ql-toolbar .ql-picker-item.ql-selected {
+        background: var(--novel-toolbar-button-hover);
+        color: var(--foreground);
+        border-color: color-mix(in srgb, var(--novel-toolbar-border) 60%, var(--accent) 40%);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      }
+
+      .novel-editor-root .ql-toolbar .ql-picker-options {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.15);
+      }
+
+      .dark .novel-editor-root .ql-toolbar .ql-picker-options {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      }
+
+      .novel-editor-root .ql-toolbar .ql-picker-item:hover {
+        background: var(--accent);
+        color: var(--accent-foreground);
+      }
+
+      .novel-editor-root .ql-editor .novel-chapter {
+        color: var(--primary);
+        font-size: 2.4em;
+        font-weight: 600;
+        margin: 1.5em 0 1em 0;
+        padding: 0.5em 0;
+        border-bottom: 1px solid var(--primary);
+        text-align: center;
+        background: var(--accent);
+        border-radius: 8px;
+      }
+
+      .novel-editor-root .ql-editor .novel-scene-break {
+        text-align: center;
+        margin: 4em 0;
+        padding: 2em 0;
+        border: none;
+        background: transparent;
+        position: relative;
+      }
+
+      .novel-editor-root .ql-editor .scene-break-stars {
+        color: var(--muted-foreground);
+        font-size: 1.8em;
+        letter-spacing: 2em;
+        padding-left: 2em;
+        opacity: 0.7;
+      }
+
+      .novel-editor-root .ql-editor .novel-scene-break::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 50%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--border), transparent);
+        z-index: -1;
+      }
+
+      .novel-editor-root .ql-editor .novel-author-note {
+        background: var(--accent);
+        color: var(--accent-foreground);
+        border: 1px solid var(--accent-foreground);
+        border-radius: 6px;
+        padding: 4px 8px;
+        margin: 0 4px;
+        font-style: italic;
+        font-size: 0.9em;
+        position: relative;
+      }
+
+      .novel-editor-root .ql-editor .novel-author-note::before {
+        content: '📝';
+        margin-right: 4px;
+        opacity: 0.7;
+      }
+
+      .novel-editor-root .ql-editor h1 {
+        font-size: 2.15em;
+        color: var(--foreground);
+        font-weight: 600;
+        margin: 2.2em 0 0.9em 0;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.35em;
+      }
+
+      .novel-editor-root .ql-editor h2 {
+        font-size: 1.65em;
+        color: var(--foreground);
+        font-weight: 500;
+        margin: 1.6em 0 0.7em 0;
+      }
+
+      .novel-editor-root .ql-editor h3 {
+        font-size: 1.35em;
+        color: var(--foreground);
+        font-weight: 500;
+        margin: 1.2em 0 0.6em 0;
+      }
+
+      .novel-editor-root .ql-editor p {
+        margin: 0 0 1.6em 0;
+        text-indent: 0;
+        color: var(--muted-foreground);
+        transition: color 0.2s ease;
+        text-align: left;
+      }
+
+      .novel-editor-root .ql-editor blockquote {
+        border-left: 4px solid var(--primary);
+        background: var(--muted);
+        padding: 1em 1.5em;
+        margin: 1.5em 0;
+        font-style: italic;
+        color: var(--foreground);
+        border-radius: 0 8px 8px 0;
+      }
+
+      .novel-editor-root .ql-editor ul,
+      .novel-editor-root .ql-editor ol {
+        margin: 1em 0;
+        padding-left: 2em;
+      }
+
+      .novel-editor-root .ql-editor li {
+        margin: 0.5em 0;
+        color: var(--muted-foreground);
+      }
+
+      .novel-editor-root .ql-editor a {
+        color: var(--primary);
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+      }
+
+      .novel-editor-root .ql-editor a:hover {
+        color: var(--primary-foreground);
+        background: var(--accent);
+      }
+
+      .novel-editor-root .ql-editor strong {
+        color: var(--foreground);
+        font-weight: 600;
+      }
+
+      .novel-editor-root .ql-editor em {
+        color: var(--muted-foreground);
+        font-style: italic;
+      }
+
+      .novel-editor-root .ql-editor u {
+        text-decoration: underline;
+        text-decoration-color: var(--muted-foreground);
+      }
+
+      .novel-editor-root .ql-editor::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .novel-editor-root .ql-editor::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .novel-editor-root .ql-editor::-webkit-scrollbar-thumb {
+        background: var(--muted-foreground);
+        border-radius: 3px;
+      }
+
+      .novel-editor-root .ql-editor::-webkit-scrollbar-thumb:hover {
+        background: var(--muted-foreground);
+      }
+
+      .novel-editor-root .ql-editor ::selection {
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .novel-editor-root .ql-editor.ql-blank::before {
+        color: var(--muted-foreground);
+        font-style: italic;
+        opacity: 0.75;
+        /* Align placeholder with actual typing start (remove Quill's default 15px offset) */
+        left: 0 !important;
+        right: 0 !important;
+        text-indent: 0;
+        /* Match the editor's top padding so the placeholder sits on the first line */
+        top: var(--novel-editor-padding-top) !important;
+        transform: none !important;
+        pointer-events: none;
+      }
+
+      .novel-editor-root .ql-container .ql-editor {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+      }
+
+      /* Overrides for author's note appearance as a transparent box */
+      .novel-editor-root .ql-editor .novel-author-note {
+        display: block;
+        width: 100%;
+        background: transparent;
+        color: var(--foreground);
+        border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 20px 0 0 0;
+        font-style: italic;
+        font-size: 0.95em;
+        position: relative;
+        opacity: 0.9;
+        cursor: pointer;
+      }
+      .novel-editor-root .ql-editor .novel-author-note::before {
+        content: "Author’s note:";
+        display: block;
+        font-style: normal;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        margin-bottom: 6px;
+        color: var(--muted-foreground);
+        opacity: 0.9;
+      }
+
+      /* Footer action: Add/Edit Author's Thought */
+      .novel-editor-root .author-note-footer {
+        width: min(100%, 880px);
+        margin: 12px auto 0;
+        display: flex;
+        justify-content: center;
+      }
+      .novel-editor-root .author-note-action-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        border-radius: 12px;
+        border: 1.5px solid color-mix(in srgb, var(--primary) 55%, var(--border) 45%);
+        background: transparent;
+        color: color-mix(in srgb, var(--primary) 75%, var(--foreground) 25%);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .novel-editor-root .author-note-action-button:hover {
+        background: color-mix(in srgb, var(--primary) 8%, transparent);
+        border-color: color-mix(in srgb, var(--primary) 70%, var(--border) 30%);
+      }
+      .novel-editor-root .author-note-action-button .plus {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid currentColor;
+        border-radius: 6px;
+        position: relative;
+        opacity: 0.9;
+      }
+      .novel-editor-root .author-note-action-button .plus::before,
+      .novel-editor-root .author-note-action-button .plus::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 10px;
+        height: 1.5px;
+        background: currentColor;
+        transform: translate(-50%, -50%);
+      }
+      .novel-editor-root .author-note-action-button .plus::after {
+        transform: translate(-50%, -50%) rotate(90deg);
+      }
+
+      /* Simple modal for note editing */
+      .novel-editor-root .note-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.45);
+        backdrop-filter: blur(3px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 70;
+      }
+      .novel-editor-root .note-modal {
+        width: min(92vw, 680px);
+        background: var(--card);
+        color: var(--foreground);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 24px 64px rgba(2, 6, 23, 0.35);
+        padding: 18px;
+      }
+      .novel-editor-root .note-modal h3 {
+        margin: 0 0 8px 0;
+        font-size: 1.05rem;
+        font-weight: 600;
+      }
+      .novel-editor-root .note-modal textarea {
+        width: 100%;
+        min-height: 120px;
+        resize: vertical;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--background);
+        color: var(--foreground);
+        padding: 10px 12px;
+        outline: none;
+      }
+      .novel-editor-root .note-modal .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .novel-editor-root .note-modal button {
+        padding: 8px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--accent);
+        color: var(--accent-foreground);
+        cursor: pointer;
+      }
+      .novel-editor-root .note-modal button.secondary {
+        background: transparent;
+        color: var(--foreground);
+      }
+    `;
+  }, [height]);
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: novelEditorStyles }} />
+      <div
+        className="novel-editor-root"
+        style={{
+          minHeight: typeof height === 'number' ? `${height}px` : String(height),
+          width: typeof width === 'number' ? `${width}px` : String(width),
+        }}
+      >
+        <div ref={editorRef} className="novel-editor-surface" />
+        {!hasAuthorNote && (
+          <div className="author-note-footer">
+            <button
+              type="button"
+              className="author-note-action-button"
+              onClick={openAuthorNoteDialog}
+              aria-label="Add Author's Thought"
+            >
+              <span className="plus" aria-hidden="true" />
+              Add Author's Thought
+            </button>
+          </div>
+        )}
+
+        {isNoteDialogOpen && (
+          <div className="note-modal-backdrop" onClick={() => setIsNoteDialogOpen(false)}>
+            <div className="note-modal" onClick={(e) => e.stopPropagation()}>
+              <h3>{hasAuthorNote ? "Edit Author's Thought" : "Add Author's Thought"}</h3>
+              <textarea
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                placeholder="Write your note to readers…"
+              />
+              <div className="actions">
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => setIsNoteDialogOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    upsertAuthorNoteAtEnd(noteDraft);
+                    setIsNoteDialogOpen(false);
+                    try {
+                      const q: any = quillRef.current;
+                      if (q) {
+                        const html = q.root?.innerHTML ?? '';
+                        const delta = q.getContents?.();
+                        const images: string[] = []; // No images supported
+                        onEditorChange?.({ html, delta, images });
+                      }
+                    } catch {}
+                  }}
+                >
+                  Save Note
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
