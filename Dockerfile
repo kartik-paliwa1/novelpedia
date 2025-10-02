@@ -19,7 +19,7 @@ ENV CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --legacy-peer-deps && \
     npm cache clean --force
 
@@ -29,7 +29,8 @@ COPY prisma ./prisma/
 RUN npx prisma generate
 
 # Copy the rest of the application source code
-COPY . .
+COPY frontend/ .
+
 
 # Generate Prisma client
 RUN npx prisma generate
