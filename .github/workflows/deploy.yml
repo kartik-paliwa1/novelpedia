@@ -1,4 +1,4 @@
-# .github/workflows/deploy.yml
+# .github/workflow/deploy.yml
 
 name: CI/CD - Build and Deploy to EC2
 
