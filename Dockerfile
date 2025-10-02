@@ -18,22 +18,17 @@ ENV CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
 # Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY frontend/package.json frontend/package-lock.json ./
+# Copy package files from the project root
+COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps && \
     npm cache clean --force
 
-# Copy the prisma schema first and generate the client
-# This layer is only invalidated if the prisma schema changes
+# Copy the prisma schema from the project root
 COPY prisma ./prisma/
 RUN npx prisma generate
 
-# Copy the rest of the application source code
-COPY frontend/ .
-
-
-# Generate Prisma client
-RUN npx prisma generate
+# Copy the rest of the application source code from the root
+COPY . .
 
 # Install TypeScript explicitly to avoid build issues
 RUN npm install --legacy-peer-deps --save-dev typescript
