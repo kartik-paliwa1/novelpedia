@@ -47,7 +47,7 @@ jobs:
             --build-arg CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }} \
             --build-arg CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }} \
             -t $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG \
-            -f Dockerfile.frontend .
+            -f Dockerfile .
           
           docker push $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG
 
